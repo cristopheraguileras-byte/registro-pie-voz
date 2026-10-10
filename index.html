@@ -5,7 +5,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Registro por voz PIE</title>
-
 <style>
 body{font:16px system-ui;background:#f2f6fa;color:#18324b;margin:0;padding:16px}
 main{max-width:720px;margin:auto}
@@ -14,31 +13,32 @@ label{display:block;font-weight:650;margin:12px 0 5px}
 input,select,textarea{width:100%;box-sizing:border-box;padding:11px;border:1px solid #b8c8d7;border-radius:9px;font:inherit}
 textarea{min-height:160px}
 button{padding:11px 14px;margin:8px 6px 0 0;border:0;border-radius:9px;background:#145da0;color:white;font-weight:650;cursor:pointer}
-button:disabled{opacity:.5;cursor:not-allowed}
+button:disabled{opacity:.5}
 .hidden{display:none}
 .status{white-space:pre-wrap;background:#edf4fa;padding:10px;border-radius:8px;margin-top:12px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(max-width:520px){.grid{grid-template-columns:1fr}}
 </style>
-
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://apis.google.com/js/api.js" async defer></script>
 </head>
-
 <body>
 <main>
 <h1>Registro por voz PIE</h1>
-<p>Dicta, revisa y guarda el registro en la Guía Maestra PIE.</p>
+<p>Dicta, revisa y guarda tus registros en la Guía Maestra PIE.</p>
 
 <section>
 <h2>1. Autorizar Google</h2>
-<p>Usa la cuenta de Google que tiene acceso a la planilla. Tu contraseña no se guarda en esta página.</p>
+<p>Usa la cuenta de Google que tiene acceso a la planilla. No se guarda tu contraseña en esta página.</p>
 <button id="connect">Autorizar Google Sheets</button>
-<span id="auth">No conectado.</span>
+<span id="auth"> No conectado.</span>
 </section>
 
 <section>
 <h2>2. Registro nuevo</h2>
+
+<label for="fecha">Fecha de atención</label>
+<input type="date" id="fecha" required>
 
 <label for="cat">Categoría</label>
 <select id="cat">
@@ -80,294 +80,237 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <label for="relato">Descripción / observaciones / acuerdos</label>
 <textarea id="relato" placeholder="Escribe o dicta aquí..."></textarea>
 
-<button id="dictar">🎙️ Dictar</button>
-<button id="detener">Detener dictado</button>
-<button id="copiar">Copiar texto</button>
+<button id="dictar" type="button">🎙️ Dictar</button>
+<button id="detener" type="button">Detener dictado</button>
+<button id="copiar" type="button">Copiar texto</button>
 
 <label for="audio">Audio/transcripción adicional (opcional)</label>
 <input id="audio" placeholder="Opcional; no se sube ningún archivo de audio">
 
-<button id="guardar" disabled>Guardar registro</button>
+<button id="guardar" type="button" disabled>Guardar registro</button>
 <div id="estado" class="status">Autoriza Google antes de guardar.</div>
 </section>
 
 <section>
-<b>Privacidad:</b> prueba primero con datos ficticios. No incluyas claves secretas OAuth en este archivo.
+<b>Privacidad:</b> utiliza datos ficticios durante las pruebas. No publiques el secreto OAuth ni compartas la planilla con personas no autorizadas.
 </section>
 </main>
 
 <script>
-const CLIENT_ID = '1051993844187-lgbr9tkd3mguu4u1qtvfudfl5kiu2dtt.apps.googleusercontent.com';
-const SHEET_ID = '1Dgj3ECaLyFsZgZyNmvmkgNDKg2RcwLph5MHNYVyYzPA';
-const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+const CLIENT_ID='1051993844187-lgbr9tkd3mguu4u1qtvfudfl5kiu2dtt.apps.googleusercontent.com';
+const SHEET_ID='1Dgj3ECaLyFsZgZyNmvmkgNDKg2RcwLph5MHNYVyYzPA';
 
-let tokenClient = null;
-let token = null;
-let rec = null;
-let librariesPromise = null;
+let tokenClient,token=null,rec=null;
+const $=id=>document.getElementById(id);
+const cat=$('cat');
 
-const $ = id => document.getElementById(id);
-const cat = $('cat');
-
-function fields() {
-  const c = cat.value;
-  $('individual').classList.toggle('hidden', c !== 'Atención individual');
-  $('collab').classList.toggle('hidden', c !== 'Trabajo colaborativo');
-  $('apod').classList.toggle('hidden', c !== 'Atención apoderados');
-  $('parts').classList.toggle(
-    'hidden',
-    !['Reuniones generales','Reuniones coordinación','Trabajo colaborativo','Atención apoderados'].includes(c)
-  );
+function fechaLocal(){
+  const d=new Date();
+  const anio=d.getFullYear();
+  const mes=String(d.getMonth()+1).padStart(2,'0');
+  const dia=String(d.getDate()).padStart(2,'0');
+  return `${anio}-${mes}-${dia}`;
 }
 
-cat.onchange = fields;
+// Completa automáticamente la fecha actual, usando la fecha local.
+$('fecha').value=fechaLocal();
+
+function fields(){
+  const c=cat.value;
+  $('individual').classList.toggle('hidden',c!=='Atención individual');
+  $('collab').classList.toggle('hidden',c!=='Trabajo colaborativo');
+  $('apod').classList.toggle('hidden',c!=='Atención apoderados');
+  $('parts').classList.toggle(
+    'hidden',
+    !['Reuniones generales','Reuniones coordinación',
+      'Trabajo colaborativo','Atención apoderados'].includes(c)
+  );
+}
+cat.onchange=fields;
 fields();
 
-function loadGoogleLibraries() {
-  if (librariesPromise) return librariesPromise;
-
-  librariesPromise = new Promise((resolve, reject) => {
-    let attempts = 0;
-
-    const timer = setInterval(() => {
-      const gisReady = !!window.google?.accounts?.oauth2;
-      const gapiReady = !!window.gapi;
-
-      if (gisReady && gapiReady) {
-        clearInterval(timer);
-
-        gapi.load('client', async () => {
-          try {
+function libs(){
+  return new Promise((resolve,reject)=>{
+    let n=0;
+    const t=setInterval(()=>{
+      if(window.google?.accounts?.oauth2 && window.gapi){
+        clearInterval(t);
+        gapi.load('client',async()=>{
+          try{
             await gapi.client.init({
-              discoveryDocs: [
+              discoveryDocs:[
                 'https://sheets.googleapis.com/$discovery/rest?version=v4'
               ]
             });
-
-            if (!gapi.client.sheets?.spreadsheets?.values) {
-              throw new Error('La API de Google Sheets no quedó disponible.');
-            }
-
             resolve();
-          } catch (error) {
-            librariesPromise = null;
-            reject(error);
-          }
+          }catch(e){reject(e);}
         });
-      } else if (++attempts >= 150) {
-        clearInterval(timer);
-        librariesPromise = null;
-        reject(new Error(
-          'No se pudieron cargar los servicios de Google. Comprueba tu conexión, recarga la página y vuelve a intentarlo.'
-        ));
+      }else if(++n>100){
+        clearInterval(t);
+        reject(Error('No cargan los servicios de Google. Recarga la página y revisa tu conexión.'));
       }
-    }, 100);
+    },100);
   });
-
-  return librariesPromise;
 }
 
-$('connect').onclick = async () => {
-  const button = $('connect');
-  button.disabled = true;
-  $('auth').textContent = ' Cargando autorización de Google…';
-  $('estado').textContent = 'Conectando con los servicios de Google…';
-
-  try {
-    await loadGoogleLibraries();
-
-    tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: SCOPES,
-
-      callback: response => {
-        button.disabled = false;
-
-        if (response.error) {
-          $('auth').textContent = ' Error de autorización: ' + response.error;
-          $('estado').textContent =
-            'Google no autorizó el acceso. Revisa la cuenta seleccionada y la configuración OAuth.';
+$('connect').onclick=async()=>{
+  $('connect').disabled=true;
+  $('auth').textContent=' Cargando autorización de Google…';
+  try{
+    await libs();
+    tokenClient=google.accounts.oauth2.initTokenClient({
+      client_id:CLIENT_ID,
+      scope:'https://www.googleapis.com/auth/spreadsheets',
+      callback:r=>{
+        $('connect').disabled=false;
+        if(r.error){
+          $('auth').textContent=' Error de autorización: '+r.error;
+          $('estado').textContent='Google no autorizó el acceso. Revisa la cuenta y la configuración OAuth.';
           return;
         }
-
-        token = response.access_token;
-        gapi.client.setToken({ access_token: token });
-
-        $('auth').textContent = ' Autorizado en esta sesión.';
-        $('guardar').disabled = false;
-        $('estado').textContent =
-          'Conexión autorizada. Haz primero una prueba con datos ficticios.';
+        token=r.access_token;
+        gapi.client.setToken({access_token:token});
+        $('auth').textContent=' Autorizado en esta sesión.';
+        $('guardar').disabled=false;
+        $('estado').textContent='Conectado. Puedes guardar tu registro.';
       },
-
-      error_callback: error => {
-        button.disabled = false;
-        $('auth').textContent =
-          ' No se pudo abrir la autorización: ' +
-          (error.message || error.type || 'ventana emergente bloqueada');
-
-        $('estado').textContent =
-          'Permite las ventanas emergentes para este sitio y vuelve a intentarlo.';
+      error_callback:e=>{
+        $('connect').disabled=false;
+        $('auth').textContent=' No se pudo abrir la autorización: '+(e.message||e.type||'error de ventana emergente');
+        $('estado').textContent='Permite las ventanas emergentes para este sitio y vuelve a intentarlo.';
       }
     });
-
-    tokenClient.requestAccessToken({ prompt: 'consent' });
-
-  } catch (error) {
-    button.disabled = false;
-    $('auth').textContent = ' Error: ' + (error.message || String(error));
-    $('estado').textContent =
-      'No se pudo iniciar Google. Recarga la página y vuelve a intentarlo.';
+    tokenClient.requestAccessToken({prompt:'consent'});
+  }catch(e){
+    $('connect').disabled=false;
+    $('auth').textContent=' Error: '+(e.message||String(e));
+    $('estado').textContent='No se pudo iniciar Google. Recarga la página y vuelve a intentarlo.';
   }
 };
 
-$('dictar').onclick = () => {
-  const SpeechRecognition =
-    window.SpeechRecognition || window.webkitSpeechRecognition;
-
-  if (!SpeechRecognition) {
-    $('estado').textContent =
-      'Dictado no disponible. Prueba con Chrome y habilita el micrófono.';
+$('dictar').onclick=()=>{
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){
+    $('estado').textContent='Dictado no disponible. Prueba Chrome y habilita el micrófono.';
     return;
   }
-
-  rec = new SpeechRecognition();
-  rec.lang = 'es-CL';
-  rec.continuous = true;
-  rec.interimResults = false;
-
-  rec.onresult = event => {
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      if (event.results[i].isFinal) {
-        $('relato').value +=
-          ($('relato').value ? ' ' : '') + event.results[i][0].transcript;
+  rec=new SR();
+  rec.lang='es-CL';
+  rec.continuous=true;
+  rec.interimResults=false;
+  rec.onresult=e=>{
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal){
+        $('relato').value+=($('relato').value?' ':'')+e.results[i][0].transcript;
       }
     }
   };
-
-  rec.onerror = event => {
-    $('estado').textContent = 'Error de dictado: ' + event.error;
-  };
-
-  rec.onstart = () => {
-    $('estado').textContent = 'Escuchando…';
-  };
-
-  rec.onend = () => {
-    $('estado').textContent = 'Dictado detenido. Revisa el texto.';
-  };
-
-  try {
-    rec.start();
-  } catch (error) {
-    $('estado').textContent = 'El dictado ya está activo.';
-  }
+  rec.onerror=e=>$('estado').textContent='Error de dictado: '+e.error;
+  rec.onstart=()=> $('estado').textContent='Escuchando…';
+  rec.onend=()=> $('estado').textContent='Dictado detenido. Revisa el texto.';
+  try{rec.start();}
+  catch(e){$('estado').textContent='El dictado ya está activo.';}
 };
 
-$('detener').onclick = () => {
-  if (rec) rec.stop();
+$('detener').onclick=()=>{
+  if(rec)rec.stop();
 };
 
-$('copiar').onclick = async () => {
-  try {
+$('copiar').onclick=async()=>{
+  try{
     await navigator.clipboard.writeText($('relato').value);
-    $('estado').textContent = 'Texto copiado.';
-  } catch (error) {
+    $('estado').textContent='Texto copiado.';
+  }catch(e){
     $('relato').select();
-    $('estado').textContent = 'Texto seleccionado: copia con Ctrl+C.';
+    $('estado').textContent='Texto seleccionado: copia con Ctrl+C.';
   }
 };
 
-$('guardar').onclick = async () => {
-  if (!token) {
-    $('estado').textContent = 'Autoriza Google primero.';
+$('guardar').onclick=async()=>{
+  if(!token){
+    $('estado').textContent='Autoriza Google primero.';
     return;
   }
 
-  const category = cat.value;
-  const relato = $('relato').value.trim();
+  const c=cat.value;
+  const r=$('relato').value.trim();
+  const fecha=$('fecha').value;
 
-  if (!relato) {
-    $('estado').textContent = 'Escribe o dicta el relato primero.';
+  if(!fecha){
+    $('estado').textContent='Selecciona la fecha de atención.';
+    $('fecha').focus();
     return;
   }
 
-  const fecha = new Date().toLocaleString('sv-SE');
-  const participantes = $('participantes').value.trim();
-  const adicional = $('audio').value.trim();
+  if(!r){
+    $('estado').textContent='Escribe o dicta el relato primero.';
+    return;
+  }
 
-  let sheet = category;
+  const p=$('participantes').value.trim();
+  const a=$('audio').value.trim();
+  const sheet=c;
   let row;
 
-  if (category === 'Atención individual') {
-    if (!$('est').value.trim()) {
-      $('estado').textContent = 'Escribe el nombre del estudiante.';
+  // La fecha seleccionada se guarda en la primera columna.
+  if(c==='Atención individual'){
+    if(!$('est').value.trim()){
+      $('estado').textContent='Escribe el nombre del estudiante.';
       return;
     }
-
-    row = [
+    row=[
       fecha,
       $('est').value.trim(),
       $('curso').value.trim(),
       $('objetivo').value.trim(),
-      relato,
+      r,
       $('lugar').value.trim(),
-      adicional
+      a
     ];
-
-  } else if (
-    category === 'Reuniones generales' ||
-    category === 'Reuniones coordinación'
-  ) {
-    row = [fecha, relato, participantes, adicional];
-
-  } else if (category === 'Trabajo colaborativo') {
-    row = [fecha, $('cursoCol').value.trim(), relato, participantes, adicional];
-
-  } else {
-    if (!$('estAp').value.trim()) {
-      $('estado').textContent = 'Escribe el nombre del estudiante.';
+  }else if(c==='Reuniones generales'||c==='Reuniones coordinación'){
+    row=[fecha,r,p,a];
+  }else if(c==='Trabajo colaborativo'){
+    row=[fecha,$('cursoCol').value.trim(),r,p,a];
+  }else{
+    if(!$('estAp').value.trim()){
+      $('estado').textContent='Escribe el nombre del estudiante.';
       return;
     }
-
-    row = [
+    row=[
       fecha,
       $('estAp').value.trim(),
       $('cursoAp').value.trim(),
-      relato,
-      participantes,
-      adicional
+      r,
+      p,
+      a
     ];
   }
 
-  $('guardar').disabled = true;
-  $('estado').textContent = 'Guardando en ' + sheet + '…';
+  $('guardar').disabled=true;
+  $('estado').textContent='Guardando en '+sheet+'…';
 
-  try {
-    const result = await gapi.client.sheets.spreadsheets.values.append({
-      spreadsheetId: SHEET_ID,
-      range: "'" + sheet.replace(/'/g, "''") + "'!A:Z",
-      valueInputOption: 'USER_ENTERED',
-      insertDataOption: 'INSERT_ROWS',
-      resource: { values: [row] }
+  try{
+    const out=await gapi.client.sheets.spreadsheets.values.append({
+      spreadsheetId:SHEET_ID,
+      range:"'"+sheet.replace(/'/g,"''")+"'!A:Z",
+      valueInputOption:'USER_ENTERED',
+      insertDataOption:'INSERT_ROWS',
+      resource:{values:[row]}
     });
 
-    const updatedRows = result.result.updates?.updatedRows || 1;
-    $('estado').textContent =
-      'Registro guardado en ' + sheet + '. Filas añadidas: ' + updatedRows;
+    $('estado').textContent=
+      'Registro guardado en '+sheet+
+      '. Filas añadidas: '+(out.result.updates?.updatedRows||1);
 
-    $('relato').value = '';
-    $('audio').value = '';
-
-  } catch (error) {
-    const message =
-      error.result?.error?.message || error.message || String(error);
-
-    $('estado').textContent =
-      'No se pudo guardar: ' + message +
-      '\nComprueba que la cuenta autorizada tiene acceso de edición a la planilla y que la pestaña existe con ese nombre exacto.';
-
-  } finally {
-    $('guardar').disabled = false;
+    $('relato').value='';
+    $('audio').value='';
+  }catch(e){
+    $('estado').textContent=
+      'No se pudo guardar: '+
+      (e.result?.error?.message||e.message||e)+
+      '\nComprueba que autorizaste la cuenta correcta y que la pestaña existe con ese nombre exacto.';
+  }finally{
+    $('guardar').disabled=false;
   }
 };
 </script>

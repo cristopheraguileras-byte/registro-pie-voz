@@ -1,0 +1,217 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Registro PIE por Voz</title>
+  <meta name="theme-color" content="#174ea6">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f3f6fb;
+      color: #1d2939;
+    }
+    header {
+      background: #174ea6;
+      color: white;
+      padding: 24px 18px;
+    }
+    header h1 { margin: 0 0 7px; font-size: 24px; }
+    header p { margin: 0; opacity: .9; font-size: 14px; }
+    main { max-width: 680px; margin: 22px auto; padding: 0 14px; }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 3px 14px #15294b12;
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-weight: 700;
+      margin: 15px 0 8px;
+    }
+    select, textarea {
+      width: 100%;
+      padding: 13px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font: inherit;
+      background: white;
+    }
+    textarea { min-height: 180px; resize: vertical; line-height: 1.5; }
+    button {
+      width: 100%;
+      padding: 14px;
+      border: 0;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 12px;
+    }
+    .primary { background: #174ea6; color: white; }
+    .secondary { background: #e8eef8; color: #174ea6; }
+    .stop { background: #b42318; color: white; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    #status {
+      padding: 12px;
+      border-radius: 9px;
+      background: #f1f5f9;
+      margin-top: 14px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .hint { color: #667085; font-size: 13px; line-height: 1.5; }
+    footer { text-align: center; padding: 18px; color: #667085; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Registro PIE por Voz</h1>
+    <p>Registro de actividades · Programa de Integración Escolar</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Nuevo registro</h2>
+      <p class="hint">
+        Selecciona la categoría y dicta el relato de tu actividad.
+        Puedes editar el texto antes de guardarlo.
+      </p>
+
+      <label for="categoria">Tipo de registro</label>
+      <select id="categoria">
+        <option value="Atención individual">Atención individual</option>
+        <option value="Reuniones generales">Reuniones generales</option>
+        <option value="Reuniones de coordinación">Reuniones de coordinación</option>
+        <option value="Trabajo colaborativo">Trabajo colaborativo</option>
+        <option value="Atención de apoderados">Atención de apoderados</option>
+      </select>
+
+      <label for="relato">Relato de la actividad</label>
+      <textarea id="relato" placeholder="El texto reconocido aparecerá aquí. También puedes escribir manualmente."></textarea>
+
+      <button id="dictar" class="primary" type="button">🎙️ Comenzar dictado</button>
+      <button id="detener" class="stop" type="button" hidden>Detener dictado</button>
+      <button id="copiar" class="secondary" type="button">Copiar texto</button>
+
+      <div id="status" role="status" aria-live="polite">
+        Listo para probar. Pulsa «Comenzar dictado» y autoriza el micrófono si el navegador lo solicita.
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>Guardado de registros</h3>
+      <p class="hint">
+        La conexión con Google Sheets se configurará en el siguiente paso.
+        Esta versión es solo para comprobar que el dictado funciona; todavía no guarda registros.
+      </p>
+      <button class="secondary" type="button" disabled>Guardar en Google Sheets (pendiente)</button>
+    </section>
+  </main>
+
+  <footer>Registro PIE · Herramienta de apoyo al trabajo profesional</footer>
+
+  <script>
+    const botonDictar = document.getElementById("dictar");
+    const botonDetener = document.getElementById("detener");
+    const relato = document.getElementById("relato");
+    const estado = document.getElementById("status");
+
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    let reconocimiento = null;
+    let escuchando = false;
+    let textoBase = "";
+
+    if (!SpeechRecognition) {
+      estado.textContent =
+        "Este navegador no ofrece la función de dictado web necesaria. Prueba con Google Chrome actualizado.";
+      botonDictar.disabled = true;
+    } else {
+      reconocimiento = new SpeechRecognition();
+      reconocimiento.lang = "es-CL";
+      reconocimiento.continuous = true;
+      reconocimiento.interimResults = true;
+
+      reconocimiento.onstart = () => {
+        escuchando = true;
+        botonDictar.hidden = true;
+        botonDetener.hidden = false;
+        estado.textContent = "🎙️ Escuchando… habla con claridad.";
+      };
+
+      reconocimiento.onresult = (event) => {
+        let definitivo = "";
+        let parcial = "";
+
+        for (let i = 0; i < event.results.length; i++) {
+          const texto = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            definitivo += texto + " ";
+          } else {
+            parcial += texto;
+          }
+        }
+
+        const nuevoTexto = (textoBase + definitivo).trim();
+        relato.value = nuevoTexto + (parcial ? " " + parcial : "");
+      };
+
+      reconocimiento.onerror = (event) => {
+        const mensajes = {
+          "not-allowed": "El navegador no autorizó el micrófono. Revisa los permisos del sitio.",
+          "service-not-allowed": "El servicio de reconocimiento de voz no está permitido en este navegador.",
+          "no-speech": "No se detectó voz. Intenta hablar más cerca del micrófono.",
+          "audio-capture": "No se encontró un micrófono disponible.",
+          "network": "El reconocimiento de voz tuvo un problema de conexión. Comprueba internet."
+        };
+        estado.textContent = mensajes[event.error] ||
+          ("No se pudo completar el dictado. Código: " + event.error);
+      };
+
+      reconocimiento.onend = () => {
+        escuchando = false;
+        botonDictar.hidden = false;
+        botonDetener.hidden = true;
+        textoBase = relato.value.trim();
+        if (!estado.textContent.includes("no autorizó") &&
+            !estado.textContent.includes("problema") &&
+            !estado.textContent.includes("No se detectó")) {
+          estado.textContent = "Dictado detenido. Puedes editar el texto o volver a dictar.";
+        }
+      };
+
+      botonDictar.addEventListener("click", () => {
+        textoBase = relato.value.trim();
+        estado.textContent = "Solicitando acceso al micrófono…";
+        try {
+          reconocimiento.start();
+        } catch (error) {
+          estado.textContent =
+            "El dictado ya está iniciado o el navegador no pudo iniciarlo. Espera un momento e inténtalo de nuevo.";
+        }
+      });
+
+      botonDetener.addEventListener("click", () => {
+        if (escuchando) reconocimiento.stop();
+      });
+    }
+
+    document.getElementById("copiar").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(relato.value);
+        estado.textContent = "Texto copiado al portapapeles.";
+      } catch (error) {
+        relato.select();
+        estado.textContent = "Selecciona el texto y cópialo manualmente.";
+      }
+    });
+  </script>
+</body>
+</html>

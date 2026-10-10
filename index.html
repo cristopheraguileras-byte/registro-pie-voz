@@ -1,217 +1,376 @@
-
-<!DOCTYPE html>
+```html
+<!doctype html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Registro PIE por Voz</title>
-  <meta name="theme-color" content="#174ea6">
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f3f6fb;
-      color: #1d2939;
-    }
-    header {
-      background: #174ea6;
-      color: white;
-      padding: 24px 18px;
-    }
-    header h1 { margin: 0 0 7px; font-size: 24px; }
-    header p { margin: 0; opacity: .9; font-size: 14px; }
-    main { max-width: 680px; margin: 22px auto; padding: 0 14px; }
-    .card {
-      background: white;
-      border-radius: 16px;
-      padding: 20px;
-      box-shadow: 0 3px 14px #15294b12;
-      margin-bottom: 16px;
-    }
-    label {
-      display: block;
-      font-weight: 700;
-      margin: 15px 0 8px;
-    }
-    select, textarea {
-      width: 100%;
-      padding: 13px;
-      border: 1px solid #cbd5e1;
-      border-radius: 10px;
-      font: inherit;
-      background: white;
-    }
-    textarea { min-height: 180px; resize: vertical; line-height: 1.5; }
-    button {
-      width: 100%;
-      padding: 14px;
-      border: 0;
-      border-radius: 10px;
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-      margin-top: 12px;
-    }
-    .primary { background: #174ea6; color: white; }
-    .secondary { background: #e8eef8; color: #174ea6; }
-    .stop { background: #b42318; color: white; }
-    button:disabled { opacity: .5; cursor: not-allowed; }
-    #status {
-      padding: 12px;
-      border-radius: 9px;
-      background: #f1f5f9;
-      margin-top: 14px;
-      font-size: 14px;
-      line-height: 1.5;
-    }
-    .hint { color: #667085; font-size: 13px; line-height: 1.5; }
-    footer { text-align: center; padding: 18px; color: #667085; font-size: 12px; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Registro por voz PIE</title>
+
+<style>
+body{font:16px system-ui;background:#f2f6fa;color:#18324b;margin:0;padding:16px}
+main{max-width:720px;margin:auto}
+section{background:white;padding:18px;margin:14px 0;border-radius:14px;border:1px solid #d7e1ea}
+label{display:block;font-weight:650;margin:12px 0 5px}
+input,select,textarea{width:100%;box-sizing:border-box;padding:11px;border:1px solid #b8c8d7;border-radius:9px;font:inherit}
+textarea{min-height:160px}
+button{padding:11px 14px;margin:8px 6px 0 0;border:0;border-radius:9px;background:#145da0;color:white;font-weight:650;cursor:pointer}
+button:disabled{opacity:.5;cursor:not-allowed}
+.hidden{display:none}
+.status{white-space:pre-wrap;background:#edf4fa;padding:10px;border-radius:8px;margin-top:12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:520px){.grid{grid-template-columns:1fr}}
+</style>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js" async defer></script>
 </head>
+
 <body>
-  <header>
-    <h1>Registro PIE por Voz</h1>
-    <p>Registro de actividades · Programa de Integración Escolar</p>
-  </header>
+<main>
+<h1>Registro por voz PIE</h1>
+<p>Dicta, revisa y guarda el registro en la Guía Maestra PIE.</p>
 
-  <main>
-    <section class="card">
-      <h2>Nuevo registro</h2>
-      <p class="hint">
-        Selecciona la categoría y dicta el relato de tu actividad.
-        Puedes editar el texto antes de guardarlo.
-      </p>
+<section>
+<h2>1. Autorizar Google</h2>
+<p>Usa la cuenta de Google que tiene acceso a la planilla. Tu contraseña no se guarda en esta página.</p>
+<button id="connect">Autorizar Google Sheets</button>
+<span id="auth">No conectado.</span>
+</section>
 
-      <label for="categoria">Tipo de registro</label>
-      <select id="categoria">
-        <option value="Atención individual">Atención individual</option>
-        <option value="Reuniones generales">Reuniones generales</option>
-        <option value="Reuniones de coordinación">Reuniones de coordinación</option>
-        <option value="Trabajo colaborativo">Trabajo colaborativo</option>
-        <option value="Atención de apoderados">Atención de apoderados</option>
-      </select>
+<section>
+<h2>2. Registro nuevo</h2>
 
-      <label for="relato">Relato de la actividad</label>
-      <textarea id="relato" placeholder="El texto reconocido aparecerá aquí. También puedes escribir manualmente."></textarea>
+<label for="cat">Categoría</label>
+<select id="cat">
+<option>Atención individual</option>
+<option>Reuniones generales</option>
+<option>Reuniones coordinación</option>
+<option>Trabajo colaborativo</option>
+<option>Atención apoderados</option>
+</select>
 
-      <button id="dictar" class="primary" type="button">🎙️ Comenzar dictado</button>
-      <button id="detener" class="stop" type="button" hidden>Detener dictado</button>
-      <button id="copiar" class="secondary" type="button">Copiar texto</button>
+<div id="individual">
+<div class="grid">
+<div><label for="est">Estudiante</label><input id="est"></div>
+<div><label for="curso">Curso</label><input id="curso"></div>
+</div>
+<label for="objetivo">Objetivo general</label>
+<input id="objetivo">
+<label for="lugar">Lugar</label>
+<input id="lugar" placeholder="Ej.: aula de recursos">
+</div>
 
-      <div id="status" role="status" aria-live="polite">
-        Listo para probar. Pulsa «Comenzar dictado» y autoriza el micrófono si el navegador lo solicita.
-      </div>
-    </section>
+<div id="collab" class="hidden">
+<label for="cursoCol">Curso</label>
+<input id="cursoCol">
+</div>
 
-    <section class="card">
-      <h3>Guardado de registros</h3>
-      <p class="hint">
-        La conexión con Google Sheets se configurará en el siguiente paso.
-        Esta versión es solo para comprobar que el dictado funciona; todavía no guarda registros.
-      </p>
-      <button class="secondary" type="button" disabled>Guardar en Google Sheets (pendiente)</button>
-    </section>
-  </main>
+<div id="apod" class="hidden">
+<div class="grid">
+<div><label for="estAp">Estudiante</label><input id="estAp"></div>
+<div><label for="cursoAp">Curso</label><input id="cursoAp"></div>
+</div>
+</div>
 
-  <footer>Registro PIE · Herramienta de apoyo al trabajo profesional</footer>
+<div id="parts" class="hidden">
+<label for="participantes">Participantes</label>
+<input id="participantes">
+</div>
 
-  <script>
-    const botonDictar = document.getElementById("dictar");
-    const botonDetener = document.getElementById("detener");
-    const relato = document.getElementById("relato");
-    const estado = document.getElementById("status");
+<label for="relato">Descripción / observaciones / acuerdos</label>
+<textarea id="relato" placeholder="Escribe o dicta aquí..."></textarea>
 
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
+<button id="dictar">🎙️ Dictar</button>
+<button id="detener">Detener dictado</button>
+<button id="copiar">Copiar texto</button>
 
-    let reconocimiento = null;
-    let escuchando = false;
-    let textoBase = "";
+<label for="audio">Audio/transcripción adicional (opcional)</label>
+<input id="audio" placeholder="Opcional; no se sube ningún archivo de audio">
 
-    if (!SpeechRecognition) {
-      estado.textContent =
-        "Este navegador no ofrece la función de dictado web necesaria. Prueba con Google Chrome actualizado.";
-      botonDictar.disabled = true;
-    } else {
-      reconocimiento = new SpeechRecognition();
-      reconocimiento.lang = "es-CL";
-      reconocimiento.continuous = true;
-      reconocimiento.interimResults = true;
+<button id="guardar" disabled>Guardar registro</button>
+<div id="estado" class="status">Autoriza Google antes de guardar.</div>
+</section>
 
-      reconocimiento.onstart = () => {
-        escuchando = true;
-        botonDictar.hidden = true;
-        botonDetener.hidden = false;
-        estado.textContent = "🎙️ Escuchando… habla con claridad.";
-      };
+<section>
+<b>Privacidad:</b> prueba primero con datos ficticios. No incluyas claves secretas OAuth en este archivo.
+</section>
+</main>
 
-      reconocimiento.onresult = (event) => {
-        let definitivo = "";
-        let parcial = "";
+<script>
+const CLIENT_ID = '1051993844187-lgbr9tkd3mguu4u1qtvfudfl5kiu2dtt.apps.googleusercontent.com';
+const SHEET_ID = '1Dgj3ECaLyFsZgZyNmvmkgNDKg2RcwLph5MHNYVyYzPA';
+const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 
-        for (let i = 0; i < event.results.length; i++) {
-          const texto = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            definitivo += texto + " ";
-          } else {
-            parcial += texto;
+let tokenClient = null;
+let token = null;
+let rec = null;
+let librariesPromise = null;
+
+const $ = id => document.getElementById(id);
+const cat = $('cat');
+
+function fields() {
+  const c = cat.value;
+  $('individual').classList.toggle('hidden', c !== 'Atención individual');
+  $('collab').classList.toggle('hidden', c !== 'Trabajo colaborativo');
+  $('apod').classList.toggle('hidden', c !== 'Atención apoderados');
+  $('parts').classList.toggle(
+    'hidden',
+    !['Reuniones generales','Reuniones coordinación','Trabajo colaborativo','Atención apoderados'].includes(c)
+  );
+}
+
+cat.onchange = fields;
+fields();
+
+function loadGoogleLibraries() {
+  if (librariesPromise) return librariesPromise;
+
+  librariesPromise = new Promise((resolve, reject) => {
+    let attempts = 0;
+
+    const timer = setInterval(() => {
+      const gisReady = !!window.google?.accounts?.oauth2;
+      const gapiReady = !!window.gapi;
+
+      if (gisReady && gapiReady) {
+        clearInterval(timer);
+
+        gapi.load('client', async () => {
+          try {
+            await gapi.client.init({
+              discoveryDocs: [
+                'https://sheets.googleapis.com/$discovery/rest?version=v4'
+              ]
+            });
+
+            if (!gapi.client.sheets?.spreadsheets?.values) {
+              throw new Error('La API de Google Sheets no quedó disponible.');
+            }
+
+            resolve();
+          } catch (error) {
+            librariesPromise = null;
+            reject(error);
           }
+        });
+      } else if (++attempts >= 150) {
+        clearInterval(timer);
+        librariesPromise = null;
+        reject(new Error(
+          'No se pudieron cargar los servicios de Google. Comprueba tu conexión, recarga la página y vuelve a intentarlo.'
+        ));
+      }
+    }, 100);
+  });
+
+  return librariesPromise;
+}
+
+$('connect').onclick = async () => {
+  const button = $('connect');
+  button.disabled = true;
+  $('auth').textContent = ' Cargando autorización de Google…';
+  $('estado').textContent = 'Conectando con los servicios de Google…';
+
+  try {
+    await loadGoogleLibraries();
+
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SCOPES,
+
+      callback: response => {
+        button.disabled = false;
+
+        if (response.error) {
+          $('auth').textContent = ' Error de autorización: ' + response.error;
+          $('estado').textContent =
+            'Google no autorizó el acceso. Revisa la cuenta seleccionada y la configuración OAuth.';
+          return;
         }
 
-        const nuevoTexto = (textoBase + definitivo).trim();
-        relato.value = nuevoTexto + (parcial ? " " + parcial : "");
-      };
+        token = response.access_token;
+        gapi.client.setToken({ access_token: token });
 
-      reconocimiento.onerror = (event) => {
-        const mensajes = {
-          "not-allowed": "El navegador no autorizó el micrófono. Revisa los permisos del sitio.",
-          "service-not-allowed": "El servicio de reconocimiento de voz no está permitido en este navegador.",
-          "no-speech": "No se detectó voz. Intenta hablar más cerca del micrófono.",
-          "audio-capture": "No se encontró un micrófono disponible.",
-          "network": "El reconocimiento de voz tuvo un problema de conexión. Comprueba internet."
-        };
-        estado.textContent = mensajes[event.error] ||
-          ("No se pudo completar el dictado. Código: " + event.error);
-      };
+        $('auth').textContent = ' Autorizado en esta sesión.';
+        $('guardar').disabled = false;
+        $('estado').textContent =
+          'Conexión autorizada. Haz primero una prueba con datos ficticios.';
+      },
 
-      reconocimiento.onend = () => {
-        escuchando = false;
-        botonDictar.hidden = false;
-        botonDetener.hidden = true;
-        textoBase = relato.value.trim();
-        if (!estado.textContent.includes("no autorizó") &&
-            !estado.textContent.includes("problema") &&
-            !estado.textContent.includes("No se detectó")) {
-          estado.textContent = "Dictado detenido. Puedes editar el texto o volver a dictar.";
-        }
-      };
+      error_callback: error => {
+        button.disabled = false;
+        $('auth').textContent =
+          ' No se pudo abrir la autorización: ' +
+          (error.message || error.type || 'ventana emergente bloqueada');
 
-      botonDictar.addEventListener("click", () => {
-        textoBase = relato.value.trim();
-        estado.textContent = "Solicitando acceso al micrófono…";
-        try {
-          reconocimiento.start();
-        } catch (error) {
-          estado.textContent =
-            "El dictado ya está iniciado o el navegador no pudo iniciarlo. Espera un momento e inténtalo de nuevo.";
-        }
-      });
-
-      botonDetener.addEventListener("click", () => {
-        if (escuchando) reconocimiento.stop();
-      });
-    }
-
-    document.getElementById("copiar").addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(relato.value);
-        estado.textContent = "Texto copiado al portapapeles.";
-      } catch (error) {
-        relato.select();
-        estado.textContent = "Selecciona el texto y cópialo manualmente.";
+        $('estado').textContent =
+          'Permite las ventanas emergentes para este sitio y vuelve a intentarlo.';
       }
     });
-  </script>
+
+    tokenClient.requestAccessToken({ prompt: 'consent' });
+
+  } catch (error) {
+    button.disabled = false;
+    $('auth').textContent = ' Error: ' + (error.message || String(error));
+    $('estado').textContent =
+      'No se pudo iniciar Google. Recarga la página y vuelve a intentarlo.';
+  }
+};
+
+$('dictar').onclick = () => {
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    $('estado').textContent =
+      'Dictado no disponible. Prueba con Chrome y habilita el micrófono.';
+    return;
+  }
+
+  rec = new SpeechRecognition();
+  rec.lang = 'es-CL';
+  rec.continuous = true;
+  rec.interimResults = false;
+
+  rec.onresult = event => {
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) {
+        $('relato').value +=
+          ($('relato').value ? ' ' : '') + event.results[i][0].transcript;
+      }
+    }
+  };
+
+  rec.onerror = event => {
+    $('estado').textContent = 'Error de dictado: ' + event.error;
+  };
+
+  rec.onstart = () => {
+    $('estado').textContent = 'Escuchando…';
+  };
+
+  rec.onend = () => {
+    $('estado').textContent = 'Dictado detenido. Revisa el texto.';
+  };
+
+  try {
+    rec.start();
+  } catch (error) {
+    $('estado').textContent = 'El dictado ya está activo.';
+  }
+};
+
+$('detener').onclick = () => {
+  if (rec) rec.stop();
+};
+
+$('copiar').onclick = async () => {
+  try {
+    await navigator.clipboard.writeText($('relato').value);
+    $('estado').textContent = 'Texto copiado.';
+  } catch (error) {
+    $('relato').select();
+    $('estado').textContent = 'Texto seleccionado: copia con Ctrl+C.';
+  }
+};
+
+$('guardar').onclick = async () => {
+  if (!token) {
+    $('estado').textContent = 'Autoriza Google primero.';
+    return;
+  }
+
+  const category = cat.value;
+  const relato = $('relato').value.trim();
+
+  if (!relato) {
+    $('estado').textContent = 'Escribe o dicta el relato primero.';
+    return;
+  }
+
+  const fecha = new Date().toLocaleString('sv-SE');
+  const participantes = $('participantes').value.trim();
+  const adicional = $('audio').value.trim();
+
+  let sheet = category;
+  let row;
+
+  if (category === 'Atención individual') {
+    if (!$('est').value.trim()) {
+      $('estado').textContent = 'Escribe el nombre del estudiante.';
+      return;
+    }
+
+    row = [
+      fecha,
+      $('est').value.trim(),
+      $('curso').value.trim(),
+      $('objetivo').value.trim(),
+      relato,
+      $('lugar').value.trim(),
+      adicional
+    ];
+
+  } else if (
+    category === 'Reuniones generales' ||
+    category === 'Reuniones coordinación'
+  ) {
+    row = [fecha, relato, participantes, adicional];
+
+  } else if (category === 'Trabajo colaborativo') {
+    row = [fecha, $('cursoCol').value.trim(), relato, participantes, adicional];
+
+  } else {
+    if (!$('estAp').value.trim()) {
+      $('estado').textContent = 'Escribe el nombre del estudiante.';
+      return;
+    }
+
+    row = [
+      fecha,
+      $('estAp').value.trim(),
+      $('cursoAp').value.trim(),
+      relato,
+      participantes,
+      adicional
+    ];
+  }
+
+  $('guardar').disabled = true;
+  $('estado').textContent = 'Guardando en ' + sheet + '…';
+
+  try {
+    const result = await gapi.client.sheets.spreadsheets.values.append({
+      spreadsheetId: SHEET_ID,
+      range: "'" + sheet.replace(/'/g, "''") + "'!A:Z",
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      resource: { values: [row] }
+    });
+
+    const updatedRows = result.result.updates?.updatedRows || 1;
+    $('estado').textContent =
+      'Registro guardado en ' + sheet + '. Filas añadidas: ' + updatedRows;
+
+    $('relato').value = '';
+    $('audio').value = '';
+
+  } catch (error) {
+    const message =
+      error.result?.error?.message || error.message || String(error);
+
+    $('estado').textContent =
+      'No se pudo guardar: ' + message +
+      '\nComprueba que la cuenta autorizada tiene acceso de edición a la planilla y que la pestaña existe con ese nombre exacto.';
+
+  } finally {
+    $('guardar').disabled = false;
+  }
+};
+</script>
 </body>
 </html>
+```
